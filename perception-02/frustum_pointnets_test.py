@@ -1,23 +1,9 @@
-''' Evaluating Frustum PointNets.
-Write evaluation results to KITTI format labels.
-and [optionally] write results to pickle files.
+from collections import namedtuple
 
-Author: Charles R. Qi
-Date: September 2017
-'''
-from __future__ import print_function
-
-import os
-import sys
-import argparse
-import importlib
 import numpy as np
 import tensorflow as tf
-import pickle
 
 from model_util import NUM_HEADING_BIN, NUM_SIZE_CLUSTER
-import provider
-from train_util import get_batch
 
 
 def get_session_and_ops(batch_size, num_point, model, model_path):
@@ -66,6 +52,9 @@ def softmax(x):
   probs = np.exp(x - np.max(x, axis=len(shape) - 1, keepdims=True))
   probs /= np.sum(probs, axis=len(shape) - 1, keepdims=True)
   return probs
+
+
+InferenceResult = namedtuple('InferenceResult', ['center', 'heading_cls', 'heading_res', 'size_cls', 'size_res'])
 
 
 def inference(sess, ops, pc, one_hot_vec, batch_size, num_classes):
@@ -120,5 +109,9 @@ def inference(sess, ops, pc, one_hot_vec, batch_size, num_classes):
   size_res = np.vstack([size_residuals[i, size_cls[i], :] \
                         for i in range(pc.shape[0])])
 
-  return np.argmax(logits, 2), centers, heading_cls, heading_res, \
-         size_cls, size_res, scores
+  results = []
+  for center, heading_c, heading_r, size_c, size_r in zip(
+      centers, heading_cls, heading_res, size_cls, size_res):
+    result = InferenceResult(center, heading_c, heading_r, size_c, size_r)
+    results.append(result)
+  return results
